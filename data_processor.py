@@ -333,17 +333,18 @@ def add_calculated_columns(df):
         logger.error(f"Erro ao adicionar colunas calculadas: {str(e)}")
         return df
 
-def filter_by_competence(df, month=None, year=None):
+def filter_by_competence(df, start_month=None, end_month=None, year=None):
     """
-    Filtra o DataFrame por competência (mês e/ou ano).
+    Filtra o DataFrame por competência (ano e intervalo de meses).
 
     Args:
-        df (pd.DataFrame): DataFrame com os dados
-        month (int, optional): Mês para filtrar (1-12)
-        year (int, optional): Ano para filtrar
+        df (pd.DataFrame): DataFrame com os dados.
+        start_month (int, optional): Mês inicial para filtrar (1-12).
+        end_month (int, optional): Mês final para filtrar (1-12).
+        year (int, optional): Ano para filtrar.
 
     Returns:
-        pd.DataFrame: DataFrame filtrado
+        pd.DataFrame: DataFrame filtrado.
     """
     try:
         # Verificar se o DataFrame tem as colunas necessárias
@@ -359,7 +360,7 @@ def filter_by_competence(df, month=None, year=None):
         filtered_df = df.copy()
         
         # Registrar informações sobre as competências antes da filtragem
-        logger.info(f"Iniciando filtragem por competência: mês={month}, ano={year}")
+        logger.info(f"Iniciando filtragem por competência: Ano={year}, Mês Inicial={start_month}, Mês Final={end_month}")
         logger.info(f"DataFrame original: {len(filtered_df)} linhas")
         logger.info(f"Competências únicas antes da filtragem: {filtered_df['Competência'].unique()}")
         logger.info(f"Valores únicos de mês antes da filtragem: {filtered_df['Mês'].unique()}")
@@ -412,40 +413,19 @@ def filter_by_competence(df, month=None, year=None):
             logger.warning(f"Após recuperação, ainda existem valores nulos: {null_mes_after} em 'Mês' e {null_ano_after} em 'Ano'")
             logger.warning("Estas linhas serão excluídas da filtragem por competência")
         
-        # Aplicar filtro por mês, se especificado
-        if month is not None:
-            if not isinstance(month, (int, float)):
-                try:
-                    month = int(month)
-                except (ValueError, TypeError):
-                    error_msg = f"Valor de mês inválido: {month}. Deve ser um número entre 1 e 12."
-                    logger.error(error_msg)
-                    raise ValueError(error_msg)
+        # Aplicar filtro por intervalo de meses, se especificado
+        if start_month is not None and end_month is not None:
+            logger.info(f"Filtrando por intervalo de meses: de {start_month} a {end_month}")
             
-            if not (1 <= month <= 12):
-                error_msg = f"Mês fora do intervalo válido: {month}. Deve estar entre 1 e 12."
-                logger.error(error_msg)
-                raise ValueError(error_msg)
-                
-            logger.info(f"Filtrando por mês: {month}")
-            # Verificar se há linhas com o mês especificado antes da filtragem
-            month_count = (filtered_df['Mês'] == float(month)).sum()
-            logger.info(f"Número de linhas com Mês={month} antes da filtragem: {month_count}")
+            # Garante que os meses sejam tratados como números
+            start_month = int(start_month)
+            end_month = int(end_month)
+
+            # Aplica o filtro de intervalo
+            month_mask = (filtered_df['Mês'] >= start_month) & (filtered_df['Mês'] <= end_month)
+            filtered_df = filtered_df[month_mask]
             
-            if month_count == 0:
-                logger.warning(f"Nenhuma linha encontrada com Mês={month}")
-                # Verificar se há competências que possam conter este mês
-                potential_matches = []
-                for comp in filtered_df['Competência'].unique():
-                    if isinstance(comp, str) and f"{month:02d}/" in comp:
-                        potential_matches.append(comp)
-                
-                if potential_matches:
-                    logger.warning(f"Possíveis competências para mês {month}: {potential_matches}")
-            
-            # Aplicar o filtro usando float para garantir compatibilidade de tipos
-            filtered_df = filtered_df[filtered_df['Mês'] == float(month)]
-            logger.info(f"Após filtrar por mês={month}: {len(filtered_df)} linhas restantes")
+            logger.info(f"Após filtrar por intervalo de meses: {len(filtered_df)} linhas restantes")
 
         # Aplicar filtro por ano, se especificado
         if year is not None:
@@ -487,9 +467,11 @@ def filter_by_competence(df, month=None, year=None):
             logger.warning("Resultado da filtragem: DataFrame vazio")
             
             # Verificar se existem dados no DataFrame original que correspondam aos critérios
-            if month is not None and year is not None:
+            if start_month is not None and end_month is not None and year is not None:
                 # Procurar por competências que possam corresponder aos critérios
-                pattern = f"{month:02d}/{year}"
+                # (Verifica qualquer mês dentro do intervalo)
+                patterns = [f"{m:02d}/{year}" for m in range(start_month, end_month + 1)]
+                matches = [comp for comp in df['Competência'].unique() if isinstance(comp, str) and any(p in comp for p in patterns)]
                 matches = [comp for comp in df['Competência'].unique() if isinstance(comp, str) and pattern in comp]
                 
                 if matches:

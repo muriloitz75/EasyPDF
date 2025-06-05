@@ -75,67 +75,97 @@ def parse_arguments():
 
     return parser.parse_args()
 
-def main():
+def process_pdf_file(pdf_path, output_dir, start_month=None, end_month=None, year=None, exclude_canceled=False):
     """
-    Função principal do programa.
-    """
-    # Analisar argumentos da linha de comando
-    args = parse_arguments()
+    Processa um único arquivo PDF e o exporta para Excel.
 
-    # Verificar se o arquivo PDF existe
-    if not os.path.isfile(args.pdf_path):
-        logger.error(f"Arquivo PDF não encontrado: {args.pdf_path}")
-        sys.exit(1)
+    Args:
+        pdf_path (str): Caminho para o arquivo PDF.
+        output_dir (str): Diretório onde o arquivo Excel será salvo.
+        start_month (int, optional): Mês inicial para filtrar. Defaults to None.
+        end_month (int, optional): Mês final para filtrar. Defaults to None.
+        year (int, optional): Ano para filtrar. Defaults to None.
+        exclude_canceled (bool, optional): Se True, exclui notas canceladas. Defaults to False.
+
+    Returns:
+        str: O caminho do arquivo Excel gerado ou None em caso de falha.
+    """
+    if not os.path.isfile(pdf_path):
+        logger.error(f"Arquivo PDF não encontrado: {pdf_path}")
+        return None
 
     try:
-        # Extrair dados do PDF
-        logger.info(f"Processando arquivo PDF: {args.pdf_path}")
-        df = extract_data_from_pdf(args.pdf_path)
+        logger.info(f"Processando arquivo PDF: {pdf_path}")
+        df = extract_data_from_pdf(pdf_path)
 
         if df.empty:
-            logger.error("Nenhum dado extraído do PDF.")
-            sys.exit(1)
+            logger.warning("Nenhum dado extraído do PDF.")
+            return None
 
-        # Processar dados
         df = process_data(df)
 
-        # Aplicar filtros, se solicitado
-        if args.month or args.year:
-            logger.info(f"Aplicando filtro: Mês={args.month}, Ano={args.year}")
-            df = filter_by_competence(df, args.month, args.year)
+        # O filtro deve ser aplicado se um ano for especificado, ou se o intervalo de meses for alterado.
+        should_filter = year is not None or (start_month is not None and end_month is not None and (start_month != 1 or end_month != 12))
+        
+        if should_filter:
+            log_year = year if year is not None else "Todos"
+            logger.info(f"Aplicando filtro: Ano={log_year}, Meses de {start_month} a {end_month}")
+            df = filter_by_competence(df, start_month, end_month, year)
 
-        # Excluir notas canceladas, se solicitado
-        if args.exclude_canceled:
+        if exclude_canceled:
             logger.info("Excluindo notas fiscais canceladas")
             df = exclude_canceled_notes(df)
 
-        # Verificar se ainda há dados após os filtros
         if df.empty:
-            logger.error("Nenhum dado restante após aplicar filtros.")
-            sys.exit(1)
+            logger.warning("Nenhum dado restante após aplicar filtros.")
+            return None
 
-        # Definir caminho de saída, se não fornecido
-        output_path = args.output
-        if output_path is None:
-            # Usar a pasta output como diretório padrão
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = os.path.join("output", f"notas_fiscais_{timestamp}.xlsx")
+        # Gera o nome do arquivo de saída
+        pdf_basename = os.path.basename(pdf_path)
+        pdf_name = os.path.splitext(pdf_basename)[0]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"{pdf_name}_{timestamp}.xlsx"
+        output_path = os.path.join(output_dir, output_filename)
 
-            # Garantir que a pasta output existe
-            os.makedirs("output", exist_ok=True)
+        os.makedirs(output_dir, exist_ok=True)
 
-        # Exportar para Excel
         excel_path = export_to_excel(df, output_path)
 
         if excel_path:
             logger.info(f"Arquivo Excel gerado com sucesso: {excel_path}")
-            print(f"\nArquivo Excel gerado com sucesso: {excel_path}")
+            return excel_path
         else:
             logger.error("Falha ao gerar arquivo Excel.")
-            sys.exit(1)
+            return None
 
     except Exception as e:
-        logger.error(f"Erro durante o processamento: {str(e)}")
+        logger.error(f"Erro durante o processamento de {pdf_path}: {str(e)}")
+        return None
+
+def main():
+    """
+    Função principal do programa para execução via linha de comando.
+    """
+    args = parse_arguments()
+
+    # A lógica da linha de comando agora suporta apenas um mês ou todos.
+    # A GUI usará o intervalo completo.
+    start_month_arg = args.month if args.month else 1
+    end_month_arg = args.month if args.month else 12
+
+    result_path = process_pdf_file(
+        args.pdf_path,
+        args.output or "output",
+        start_month_arg,
+        end_month_arg,
+        args.year,
+        args.exclude_canceled
+    )
+
+    if result_path:
+        print(f"\nArquivo Excel gerado com sucesso: {result_path}")
+    else:
+        print("\nFalha ao processar o arquivo.")
         sys.exit(1)
 
 if __name__ == "__main__":
