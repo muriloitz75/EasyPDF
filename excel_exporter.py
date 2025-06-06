@@ -131,10 +131,10 @@ def _create_kpi_block(worksheet, df, start_row):
     ticket_medio = total_faturado / qtd_notas if qtd_notas > 0 else 0
 
     kpis = {
-        "Valor Total Faturado": f"R$ {total_faturado:,.2f}",
+        "Valor Total Faturado": f"R$ {total_faturado:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
         "Quantidade de Notas Válidas": f"{qtd_notas}",
-        "ISS Total (Próprio + Retido)": f"R$ {iss_total:,.2f}",
-        "Ticket Médio por Nota": f"R$ {ticket_medio:,.2f}"
+        "ISS Total (Próprio + Retido)": f"R$ {iss_total:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'),
+        "Ticket Médio por Nota": f"R$ {ticket_medio:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
     }
 
     col = 1
@@ -194,11 +194,18 @@ def _write_table_to_sheet(worksheet, df_summary, headers, start_row, start_col, 
     current_row = start_row + 1
     for _, row_data in df_summary.iterrows():
         for i, col_name in enumerate(headers):
-            cell = worksheet.cell(row=current_row, column=start_col + i, value=row_data[col_name])
+            # Formatação de valores monetários para o padrão brasileiro
+            if "R$" in col_name and isinstance(row_data[col_name], (int, float)):
+                # Converter para o formato brasileiro (vírgula como decimal, ponto como milhar)
+                value = f"{row_data[col_name]:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+                cell = worksheet.cell(row=current_row, column=start_col + i, value=value)
+            else:
+                cell = worksheet.cell(row=current_row, column=start_col + i, value=row_data[col_name])
+                
             cell.border = THIN_BORDER
             # Formatação específica
             if "R$" in col_name:
-                cell.number_format = 'R$ #,##0.00'
+                cell.number_format = 'R$ #.##0,00'
                 cell.alignment = RIGHT_ALIGN
             elif "%" in col_name:
                 cell.number_format = '0.00"%"'
