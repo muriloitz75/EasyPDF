@@ -166,11 +166,11 @@ def _create_kpi_block(worksheet, df, start_row):
     return start_row + 3
 
 def _create_tables_block(worksheet, df, start_row):
-    # Tabela 1: Resumo por Situação (colunas A-E)
+    # Tabela 1: Resumo por Situação (colunas A-F) - agora com 5 colunas
     row_after_situacao = _create_situacao_summary(worksheet, df, start_row, start_col=1)
     
-    # Tabela 2: Resumo por Código de Serviço (colunas G-L)
-    row_after_codigo = _create_codigo_servico_summary(worksheet, df, start_row, start_col=7)
+    # Tabela 2: Resumo por Código de Serviço (colunas H-M) - agora com 6 colunas, começando na coluna H
+    row_after_codigo = _create_codigo_servico_summary(worksheet, df, start_row, start_col=8)
 
     # A próxima linha será a maior entre as duas tabelas
     next_row = max(row_after_situacao, row_after_codigo)
@@ -226,14 +226,20 @@ def _write_table_to_sheet(worksheet, df_summary, headers, start_row, start_col, 
 def _create_situacao_summary(worksheet, df, start_row, start_col):
     summary = df.groupby('Situação').agg(
         Qtd_Notas=('Número da Nota', 'count'),
-        Valor_Servico=('Valor do Serviço (R$)', 'sum')
-    ).reset_index().rename(columns={'Valor_Servico': 'Valor Serviço (R$)'})
+        Valor_Servico=('Valor do Serviço (R$)', 'sum'),
+        ISS_Proprio=('ISS Próprio (R$)', 'sum'),
+        ISS_Retido=('ISS Retido (R$)', 'sum')
+    ).reset_index().rename(columns={
+        'Valor_Servico': 'Valor Serviço (R$)',
+        'ISS_Proprio': 'ISS Próprio (R$)',
+        'ISS_Retido': 'ISS Retido (R$)'
+    })
     total_row = summary.sum(numeric_only=True)
     total_row['Situação'] = 'TOTAL'
     summary = pd.concat([summary, pd.DataFrame([total_row])], ignore_index=True)
     
-    headers = ['Situação', 'Qtd_Notas', 'Valor Serviço (R$)']
-    widths = [18, 12, 20]
+    headers = ['Situação', 'Qtd_Notas', 'Valor Serviço (R$)', 'ISS Próprio (R$)', 'ISS Retido (R$)']
+    widths = [18, 12, 20, 18, 18]
     
     return _write_table_to_sheet(worksheet, summary, headers, start_row, start_col, widths)
 
@@ -242,14 +248,21 @@ def _create_codigo_servico_summary(worksheet, df, start_row, start_col):
     summary = df_validas.groupby('Código do Serviço').agg(
         Qtd_Notas=('Número da Nota', 'count'),
         Valor_Servico=('Valor do Serviço (R$)', 'sum'),
+        ISS_Proprio=('ISS Próprio (R$)', 'sum'),
+        ISS_Retido=('ISS Retido (R$)', 'sum'),
         Aliquota_perc=('Alíquota (%)', 'first')
-    ).reset_index().rename(columns={'Valor_Servico': 'Valor Serviço (R$)', 'Aliquota_perc': 'Alíquota (%)'})
+    ).reset_index().rename(columns={
+        'Valor_Servico': 'Valor Serviço (R$)',
+        'ISS_Proprio': 'ISS Próprio (R$)',
+        'ISS_Retido': 'ISS Retido (R$)',
+        'Aliquota_perc': 'Alíquota (%)'
+    })
     total_row = summary.sum(numeric_only=True)
     total_row['Código do Serviço'] = 'TOTAL'
     summary = pd.concat([summary, pd.DataFrame([total_row])], ignore_index=True)
 
-    headers = ['Código do Serviço', 'Qtd_Notas', 'Valor Serviço (R$)', 'Alíquota (%)']
-    widths = [18, 12, 20, 12]
+    headers = ['Código do Serviço', 'Qtd_Notas', 'Valor Serviço (R$)', 'ISS Próprio (R$)', 'ISS Retido (R$)', 'Alíquota (%)']
+    widths = [18, 12, 20, 18, 18, 12]
 
     return _write_table_to_sheet(worksheet, summary, headers, start_row, start_col, widths)
 
@@ -257,13 +270,19 @@ def _create_top_tomadores_summary(worksheet, df, start_row, start_col):
     df_validas = df[df['Situação'] != 'CANCELADA'].copy()
     summary = df_validas.groupby('Nome do Tomador').agg(
         Valor_Total=('Valor do Serviço (R$)', 'sum'),
+        ISS_Proprio=('ISS Próprio (R$)', 'sum'),
+        ISS_Retido=('ISS Retido (R$)', 'sum'),
         Qtd_Notas=('Número da Nota', 'count')
     ).reset_index()
     summary = summary.sort_values('Valor_Total', ascending=False).head(5)
-    summary = summary.rename(columns={'Valor_Total': 'Valor Total (R$)'})
+    summary = summary.rename(columns={
+        'Valor_Total': 'Valor Total (R$)',
+        'ISS_Proprio': 'ISS Próprio (R$)',
+        'ISS_Retido': 'ISS Retido (R$)'
+    })
 
-    headers = ['Nome do Tomador', 'Qtd_Notas', 'Valor Total (R$)']
-    widths = [40, 12, 20]
+    headers = ['Nome do Tomador', 'Qtd_Notas', 'Valor Total (R$)', 'ISS Próprio (R$)', 'ISS Retido (R$)']
+    widths = [40, 12, 20, 18, 18]
     
     # Título da tabela
     worksheet.merge_cells(start_row=start_row, start_column=start_col, end_row=start_row, end_column=start_col + len(widths) - 1)
