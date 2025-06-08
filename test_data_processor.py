@@ -124,7 +124,7 @@ class TestDataProcessor(unittest.TestCase):
         processed_df = process_data(df_copy)
         
         # Testar filtragem por mês
-        filtered_by_month = filter_by_competence(processed_df, month=1)
+        filtered_by_month = filter_by_competence(processed_df, start_month=1, end_month=1)
         self.assertEqual(len(filtered_by_month), 1)
         self.assertEqual(filtered_by_month.iloc[0]['Mês'], 1.0)
         
@@ -133,13 +133,13 @@ class TestDataProcessor(unittest.TestCase):
         self.assertEqual(len(filtered_by_year), 5)  # Todos os registros são de 2023
         
         # Testar filtragem por mês e ano
-        filtered_by_both = filter_by_competence(processed_df, month=2, year=2023)
+        filtered_by_both = filter_by_competence(processed_df, start_month=2, end_month=2, year=2023)
         self.assertEqual(len(filtered_by_both), 1)
         self.assertEqual(filtered_by_both.iloc[0]['Mês'], 2.0)
         self.assertEqual(filtered_by_both.iloc[0]['Ano'], 2023.0)
         
         # Testar filtragem com valores que não existem
-        filtered_empty = filter_by_competence(processed_df, month=6, year=2024)
+        filtered_empty = filter_by_competence(processed_df, start_month=6, end_month=6, year=2024)
         self.assertTrue(filtered_empty.empty)
     
     def test_clean_tomador_name(self):

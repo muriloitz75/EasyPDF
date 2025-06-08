@@ -472,10 +472,9 @@ def filter_by_competence(df, start_month=None, end_month=None, year=None):
                 # (Verifica qualquer mês dentro do intervalo)
                 patterns = [f"{m:02d}/{year}" for m in range(start_month, end_month + 1)]
                 matches = [comp for comp in df['Competência'].unique() if isinstance(comp, str) and any(p in comp for p in patterns)]
-                matches = [comp for comp in df['Competência'].unique() if isinstance(comp, str) and pattern in comp]
                 
                 if matches:
-                    logger.warning(f"Encontradas competências que correspondem aos critérios {pattern}: {matches}")
+                    logger.warning(f"Encontradas competências que correspondem aos critérios: {matches}")
                     logger.warning("Tentando recuperar linhas com base na competência textual...")
                     
                     # Recuperar linhas com base na competência textual
@@ -489,8 +488,13 @@ def filter_by_competence(df, start_month=None, end_month=None, year=None):
                         # Combinar as linhas recuperadas
                         recovered_df = pd.concat(recovered_rows)
                         # Forçar os valores de Mês e Ano para garantir que sejam filtrados corretamente
-                        recovered_df['Mês'] = float(month)
-                        recovered_df['Ano'] = float(year)
+                        for pattern in patterns:
+                            if pattern in recovered_df['Competência'].values:
+                                mes_pattern = int(pattern.split('/')[0])
+                                ano_pattern = int(pattern.split('/')[1])
+                                pattern_mask = recovered_df['Competência'].str.contains(pattern, na=False)
+                                recovered_df.loc[pattern_mask, 'Mês'] = float(mes_pattern)
+                                recovered_df.loc[pattern_mask, 'Ano'] = float(ano_pattern)
                         
                         filtered_df = recovered_df
                         logger.info(f"Recuperadas {len(filtered_df)} linhas com base na competência textual")

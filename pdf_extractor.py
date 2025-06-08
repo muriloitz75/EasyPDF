@@ -4,6 +4,7 @@ import pandas as pd
 import os
 from tqdm import tqdm
 import logging
+import traceback
 
 # Configuração de logging
 logging.basicConfig(
@@ -207,7 +208,8 @@ def extract_data_from_pdf(pdf_path):
             return pd.DataFrame()
 
     except Exception as e:
-        logger.error(f"Erro ao extrair dados do PDF: {str(e)}")
+        tb_str = traceback.format_exc()
+        logger.error(f"Erro ao extrair dados do PDF: {str(e)}\nTraceback:\n{tb_str}")
         raise
 
 def extract_from_tables(page, competencia):
